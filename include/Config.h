@@ -16,7 +16,7 @@
 #define NUM_AXES             (3)                      // 3 axes: θ1, d2, d3
 
 // Robot geometry (adjust based on your specific RPP design)
-#define BASE_HEIGHT          (0.0)                    // Base height offset (mm), if any
+#define BASE_HEIGHT          (300.0)                    // Base height offset (mm), if any
 
 // Homing parameters
 #define HOMING_SPEED         (500)                    // Feedrate for homing (mm/min)

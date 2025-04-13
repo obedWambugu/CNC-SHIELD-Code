@@ -10,20 +10,20 @@ float px = 0, py = 0, pz = 0;
 
 void forwardKinematics(float t1, float d2_val, float d3_val, float &x, float &y, float &z) {
     float theta_rad = t1 * PI / 180.0; // Convert to radians
-    x = d2_val * cos(theta_rad);       // Radial distance in XY plane
-    y = d2_val * sin(theta_rad);
-    z = d3_val + BASE_HEIGHT;          // Vertical displacement
+    x = d3_val * sin(theta_rad);       // Radial distance in XY plane
+    y = d3_val * cos(theta_rad);
+    z = d2_val + BASE_HEIGHT;          // Vertical displacement
   }
   
 bool inverseKinematics(float x, float y, float z, float &t1, float &d2_val, float &d3_val) {
-    d2_val = sqrt(x * x + y * y);
-    if (d2_val == 0) {
+    d3_val = sqrt(x * x + y * y);
+    if (d3_val == 0) {
         t1 = 0;
     } else {
         t1 = atan2(y, x) * 180.0 / PI; // Returns -180° to 180°
         if (t1 < 0) t1 += 360.0;       // Normalize to 0°–360°
     }
-    d3_val = z - BASE_HEIGHT;
+    d2_val = z - BASE_HEIGHT;
     return true;
 }
 

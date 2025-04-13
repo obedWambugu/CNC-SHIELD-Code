@@ -197,11 +197,6 @@ void jogTheta1(float degrees, float feedrate_deg_min) {
   }
 
   float new_theta1 = theta1 + degrees;
-  if (new_theta1 < -180.0 || new_theta1 > 180.0) {
-      Serial.println(F("Error: Theta1 out of bounds"));
-      ready();
-      return;
-  }
 
   long steps = (long)(degrees * STEPS_PER_DEGREE);
   if (steps == 0) {
