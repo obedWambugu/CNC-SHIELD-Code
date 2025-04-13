@@ -133,13 +133,13 @@ void arc(float x_end, float y_end, float i, float j, bool clockwise) {
 }
   
 void where() {
-    output("X", px);
-    output("Y", py);
-    output("Z", pz);
-    output("T", theta1);
-    output("D2", d2);
-    output("D3", d3);
-    output("F", fr / STEPS_PER_MM * 60);
+    output("X ", px);
+    output("Y ", py);
+    output("Z ", pz);
+    output("T ", theta1);
+    output("D2 ", d2);
+    output("D3 ", d3);
+    output("F ", fr / STEPS_PER_MM * 60);
     Serial.println(mode_abs ? "ABS" : "REL");
 }
   
@@ -155,7 +155,8 @@ void help() {
     Serial.println(F("G90; - absolute mode"));
     Serial.println(F("G91; - relative mode"));
     Serial.println(F("G92 [X/Y/Z(mm)]; - change logical position"));
-    Serial.println(F("J1/J2/J3 [D(distance)]; - jog θ1 (deg), d2 (mm), d3 (mm)"));
+    Serial.println(F("J1 [D(degrees)] [F(deg/min)]; - jog θ1 (degrees)"));
+    Serial.println(F("J2/J3 [D(distance)]; - d2 (mm), d3 (mm)"));
     Serial.println(F("M17; - enable motors"));
     Serial.println(F("M18; - disable motors"));
     Serial.println(F("M100; - this help message"));
@@ -173,12 +174,27 @@ void homeAllAxes() {
     where();
 }
 
-void jogTheta1(float degrees) {
+void jogTheta1(float degrees, float feedrate_deg_min) {
   Serial.print(F("Jogging theta1 by "));
   Serial.print(degrees);
-  Serial.println(F(" degrees"));
+  Serial.print(F(" degrees at "));
+  Serial.print(feedrate_deg_min);
+  Serial.println(F(" deg/min"));
 
   motor_enable();
+
+  // Validate feedrate (assuming MAX_FEEDRATE is in mm/min, scale for degrees)
+  float max_feedrate_deg = MAX_FEEDRATE * STEPS_PER_MM / STEPS_PER_DEGREE;
+  float min_feedrate_deg = MIN_FEEDRATE * STEPS_PER_MM / STEPS_PER_DEGREE;
+  if (feedrate_deg_min < min_feedrate_deg || feedrate_deg_min > max_feedrate_deg) {
+      Serial.print(F("Error: Feedrate must be between "));
+      Serial.print(min_feedrate_deg);
+      Serial.print(F(" and "));
+      Serial.print(max_feedrate_deg);
+      Serial.println(F(" deg/min"));
+      ready();
+      return;
+  }
 
   float new_theta1 = theta1 + degrees;
   if (new_theta1 < -180.0 || new_theta1 > 180.0) {
@@ -198,9 +214,15 @@ void jogTheta1(float degrees) {
   digitalWrite(motors[0].dir_pin, steps >= 0 ? HIGH : LOW);
   steps = abs(steps);
 
-  // Calculate step delay based on JOG_SPEED (degrees/min for θ1)
-  long steps_per_sec = JOG_SPEED * STEPS_PER_DEGREE / 60.0;
+  // Calculate step delay (degrees/min to microseconds/step)
+  float steps_per_sec = feedrate_deg_min * STEPS_PER_DEGREE / 60.0;
   long step_delay_us = 1000000L / steps_per_sec;
+
+  Serial.print(F("Theta1 steps: "));
+  Serial.print(steps);
+  Serial.print(F(", delay: "));
+  Serial.print(step_delay_us);
+  Serial.println(F(" us"));
 
   // Step motor
   for (long i = 0; i < steps; i++) {
@@ -210,53 +232,82 @@ void jogTheta1(float degrees) {
 
   theta1 = new_theta1;
   forwardKinematics(theta1, d2, d3, px, py, pz);
-  
+
+  Serial.print(F("New theta1: "));
+  Serial.println(theta1, 2);
   where();
   ready();
 }
 
-void jogAxis(int axis, float distance) {
-    Serial.print(F("Jogging axis "));
-    Serial.print(axis);
-    Serial.print(F(" by "));
-    Serial.print(distance);
-    Serial.println(axis == 0 ? F(" degrees") : F(" mm"));
-  
-    // Ensure motors are enabled
-    motor_enable();
-  
-    // Calculate new target position based on current position
-    float new_d2 = d2;
-    float new_d3 = d3;
-  
-    if (axis == 1) new_d2 += distance; // d2 (mm)
-    else if (axis == 2) new_d3 += distance; // d3 (mm)
-  
-    // Check limit switch before moving
-    if ((axis == 1 && new_d2 < 0) || 
-        (axis == 2 && new_d3 < 0)) {
-      if (isLimitSwitchTriggered(axis)) {
-        Serial.println(F("Cannot jog: Limit switch triggered"));
-        return;
+void jogAxis(int axis, float distance, float feedrate_mm_min) {
+  Serial.print(F("Jogging axis "));
+  Serial.print(axis == 1 ? "d2" : "d3");
+  Serial.print(F(" by "));
+  Serial.print(distance);
+  Serial.print(F(" mm at "));
+  Serial.print(feedrate_mm_min);
+  Serial.println(F(" mm/min"));
+
+  motor_enable();
+
+  // Validate feedrate
+  if (feedrate_mm_min < MIN_FEEDRATE || feedrate_mm_min > MAX_FEEDRATE) {
+      Serial.print(F("Error: Feedrate must be between "));
+      Serial.print(MIN_FEEDRATE);
+      Serial.print(F(" and "));
+      Serial.print(MAX_FEEDRATE);
+      Serial.println(F(" mm/min"));
+      ready();
+      return;
+  }
+
+  float new_d2 = d2;
+  float new_d3 = d3;
+  float prev_theta1 = theta1;
+
+  if (axis == 1) {
+      new_d2 += distance;
+      if (new_d2 < 0.0 || new_d2 > 1000.0) {
+          Serial.println(F("Error: d2 out of bounds"));
+          ready();
+          return;
       }
-    }
-  
-    // Convert to Cartesian coordinates and move
-    float new_x, new_y, new_z;
-    forwardKinematics(theta1, new_d2, new_d3, new_x, new_y, new_z);
-  
-    // Set jogging speed
-    float prev_fr = fr;
-    feedrate(JOG_SPEED);
-  
-    // Perform the move
-    line(new_x, new_y, new_z);
-  
-    // Restore previous feedrate
-    feedrate(prev_fr);
-  
-    // Report new position
-    where();
+  } else if (axis == 2) {
+      new_d3 += distance;
+      if (new_d3 < 0.0 || new_d3 > 1000.0) {
+          Serial.println(F("Error: d3 out of bounds"));
+          ready();
+          return;
+      }
+  } else {
+      Serial.println(F("Error: Invalid axis"));
+      ready();
+      return;
+  }
+
+  float prev_fr = fr;
+  feedrate(feedrate_mm_min);  // Set feedrate for line()
+
+  float new_x, new_y, new_z;
+  forwardKinematics(prev_theta1, new_d2, new_d3, new_x, new_y, new_z);
+  line(new_x, new_y, new_z);
+
+  feedrate(prev_fr);
+
+  d2 = new_d2;
+  d3 = new_d3;
+  theta1 = prev_theta1;
+
+  forwardKinematics(theta1, d2, d3, px, py, pz);
+
+  Serial.print(F("After jog: theta1="));
+  Serial.print(theta1, 2);
+  Serial.print(F(", d2="));
+  Serial.print(d2, 2);
+  Serial.print(F(", d3="));
+  Serial.println(d3, 2);
+  where();
+  ready();
 }
   
 void processCommand() {
@@ -313,9 +364,24 @@ void processCommand() {
         }
         cmd = parseNumber('J', -1);
         switch (cmd) {
-          case 1: jogTheta1(parseNumber('D', JOG_STEP_DEFAULT)); ready(); break;
-          case 2: jogAxis(1, parseNumber('D', JOG_STEP_DEFAULT)); ready(); break;
-          case 3: jogAxis(2, parseNumber('D', JOG_STEP_DEFAULT)); ready(); break;
+          case 1: {
+            float degrees = parseNumber('D', JOG_STEP_DEFAULT);
+            float feedrate = parseNumber('F', JOG_SPEED);  // Default to JOG_SPEED
+            jogTheta1(degrees, feedrate);
+            break;
+           }
+           case 2: {
+            float distance = parseNumber('D', JOG_STEP_DEFAULT);
+            float feedrate = parseNumber('F', JOG_SPEED);
+            jogAxis(1, distance, feedrate);
+            break;
+        }
+        case 3: {
+            float distance = parseNumber('D', JOG_STEP_DEFAULT);
+            float feedrate = parseNumber('F', JOG_SPEED);
+            jogAxis(2, distance, feedrate);
+            break;
+        }
         }
         break;
       }
