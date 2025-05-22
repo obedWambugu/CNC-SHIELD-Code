@@ -1,0 +1,5 @@
+{
+    "port": "COM4",
+    "baud": "115200",
+    "file": "C:/Users/Obed Wambugu/Documents/Gcode Sender/program.gcode"
+}

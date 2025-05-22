@@ -25,6 +25,7 @@ void motor_setup() {
       pinMode(motors[i].step_pin, OUTPUT);
       pinMode(motors[i].dir_pin, OUTPUT);
       pinMode(motors[i].enable_pin, OUTPUT);
+      pinMode(motors[i].limit_switch_pin, INPUT_PULLUP);
     }
   }
 
@@ -48,10 +49,10 @@ void onestep(int motor) {
 // Robust limit switch check with debouncing
 bool isLimitSwitchTriggered(int motor) {
     if (digitalRead(motors[motor].limit_switch_pin) == LOW) {
-      delay(DEBOUNCE_DELAY); // Wait to debounce
-      if (digitalRead(motors[motor].limit_switch_pin) == LOW) {
+        delay(DEBOUNCE_DELAY); // Wait to debounce
+    if (digitalRead(motors[motor].limit_switch_pin) == LOW) {
         return true; // Confirmed trigger
-      }
+     }
     }
     return false;
 }
@@ -61,21 +62,37 @@ void homeAxis(int axis) {
     Serial.print(F("Homing axis "));
     Serial.println(axis);
 
-    // Set direction toward home (assume negative direction for simplicity)
-    digitalWrite(motors[axis].dir_pin, LOW); // Adjust based on your setup
+    if (axis == 2){
+        digitalWrite(motors[axis].dir_pin, HIGH);
+    } else {
+        // Set direction toward home (assume negative direction for simplicity)
+        digitalWrite(motors[axis].dir_pin, LOW); // Adjust based on your setup
+    }
 
     // Move toward limit switch at homing speed
     long steps_per_sec = HOMING_SPEED * (axis == 0 ? STEPS_PER_DEGREE : STEPS_PER_MM) / 60.0;
-    long step_delay = 1000000L / steps_per_sec;
-
+    // long step_delay = 1000000L / steps_per_sec;
+    long step_delay = 1000000L / (steps_per_sec * 2);
+    
     while (!isLimitSwitchTriggered(axis)) {
         onestep(axis);
         delayMicroseconds(step_delay);
     }
+       
+    if (axis == 2){
+        digitalWrite(motors[axis].dir_pin, LOW);
+    } else {
+        // Back off slightly after hitting the limit
+        digitalWrite(motors[axis].dir_pin, HIGH); // Reverse direction
+    }
 
-    // Back off slightly after hitting the limit
-    digitalWrite(motors[axis].dir_pin, HIGH); // Reverse direction
     long backoff_steps = HOMING_BACKOFF * (axis == 0 ? STEPS_PER_DEGREE : STEPS_PER_MM);
+    if (axis == 1){
+        backoff_steps = backoff_steps * 40;
+    }
+    else{
+        backoff_steps = backoff_steps;
+    }
     for (long i = 0; i < backoff_steps; i++) {
         onestep(axis);
         delayMicroseconds(step_delay);
@@ -84,7 +101,7 @@ void homeAxis(int axis) {
     // Set this position as zero
     if (axis == 0) position(0, d2, d3);
     else if (axis == 1) position(theta1, 0, d3);
-    else position(theta1, d2, 0);
+    else position(theta1, d2, 400);
 
     Serial.print(F("Axis "));
     Serial.print(axis);

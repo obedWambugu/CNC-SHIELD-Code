@@ -167,9 +167,12 @@ void help() {
 void homeAllAxes() {
     Serial.println(F("Starting homing sequence"));
     motor_enable();
-    for (int i = 0; i < NUM_AXES; i++) {
-      homeAxis(i);
-    }
+    homeAxis(2);
+    homeAxis(1);
+    homeAxis(0);
+    // for (int i = 2; i > 0  ; i--) {
+    //   homeAxis(i);
+    // }
     Serial.println(F("Homing complete"));
     where();
 }
@@ -304,6 +307,7 @@ void jogAxis(int axis, float distance, float feedrate_mm_min) {
   where();
   ready();
 }
+
   
 void processCommand() {
     int cmd = parseNumber('G', -1);

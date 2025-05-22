@@ -9,8 +9,8 @@
 #define MAX_BUF              (64)                     // Serial buffer size
 #define STEPS_PER_TURN       (200)                    // Steps per revolution for stepper motors
 #define STEPS_PER_TURN_2     (200) 
-#define STEPS_PER_DEGREE     (STEPS_PER_TURN_2 / 360.0) // For θ1 (rotational axis)
-#define STEPS_PER_MM         (STEPS_PER_TURN / 4)  // For d2, d3 (prismatic axes), adjust as needed
+#define STEPS_PER_DEGREE     (STEPS_PER_TURN_2 / 22.5) // For θ1 (rotational axis)
+#define STEPS_PER_MM         (STEPS_PER_TURN)  // For d2, d3 (prismatic axes), adjust as needed
 #define MAX_FEEDRATE         (1000000)                // Max steps per second
 #define MIN_FEEDRATE         (1)                      // Min steps per second
 #define NUM_AXES             (3)                      // 3 axes: θ1, d2, d3
@@ -21,7 +21,7 @@
 // Homing parameters
 #define HOMING_SPEED         (500)                    // Feedrate for homing (mm/min)
 #define HOMING_BACKOFF       (5)                      // Distance to back off after hitting limit (mm or degrees)
-#define DEBOUNCE_DELAY       (20)                     // Debounce time for limit switches (ms)
+#define DEBOUNCE_DELAY       (10)                     // Debounce time for limit switches (ms)
 
 // Jogging parameters
 #define JOG_SPEED            (500)                    // Default jogging feedrate (mm/min or deg/min)
